@@ -1757,40 +1757,6 @@ function buildVentasMesCanvas(filas,titulo){
   return cv;
 }
 
-// CLIENTES
-function catClienteColor(cat){
-  return {Regular:{bg:"#F0EDE9",fg:"#6B6B6B"},Frecuente:{bg:"rgba(107,181,181,.18)",fg:"#3D8A8A"},Black:{bg:"rgba(44,44,44,.1)",fg:"#2C2C2C"},Mayorista:{bg:"rgba(155,127,212,.18)",fg:"#7355B0"}}[cat]||{bg:"#F0EDE9",fg:"#6B6B6B"};
-}
-function renderClientes(q){
-  q=q||"";
-  var f=clientes.filter(function(c){return c.nombre.toLowerCase().indexOf(q.toLowerCase())>=0||(c.nick||"").toLowerCase().indexOf(q.toLowerCase())>=0||(c.ciudad||"").toLowerCase().indexOf(q.toLowerCase())>=0;});
-  f=f.slice().sort(function(a,b){return new Date(b.creado||0)-new Date(a.creado||0);});
-  var pg=pagSlice("clientes",f);
-  document.getElementById("lst-cl").innerHTML=(pg.items.length?pg.items.map(function(c){
-    var items=detalles.filter(function(d){return d.clienteId===c.id;});
-    var total=items.reduce(function(s,d){return s+d.precio*d.cantidad;},0);
-    var sc=c.redSocial==="TikTok"?"#010101":"#C13584";
-    var catC=catClienteColor(c.categoria||"Regular");
-    return '<div class="card" onclick="cardEdit(event,\'cliente\','+c.id+')"><div class="crow"><div class="av">'+esc(c.nombre.charAt(0))+'</div><div class="ci"><div class="cn">'+esc(c.nombre)+' <span style="font-size:10px;font-weight:700;background:'+catC.bg+';color:'+catC.fg+';padding:2px 8px;border-radius:10px;margin-left:4px">'+esc(c.categoria||"Regular")+'</span></div><div class="cm"><span>'+esc(c.telefono||"")+'</span>'+(c.nick?'<span style="color:'+sc+';font-weight:500">'+esc(c.nick)+'</span>':'')+(c.cumpleDia?'<span>🎂 '+cumStr(c.cumpleDia,c.cumpleMes)+'</span>':"")+'</div></div><div class="ca"><div class="amt" style="color:var(--pink)">'+fmt(total)+'</div><div class="sub">'+items.length+' items</div></div><div class="cact"><button class="ib" onclick="viewCliente('+c.id+')">'+SVGey+'</button><button class="ib" onclick="openForm(\'cliente\','+c.id+')">'+SVGe+'</button><button class="ib ibd" onclick="delCl('+c.id+')">'+SVGt+'</button></div></div></div>';
-  }).join(""):'<div class="empty"><div style="font-size:32px;margin-bottom:12px">🌸</div>Sin clientas encontradas</div>')+pagControlHTML("clientes",pg,"renderClientesCur");
-}
-function renderClientesCur(){ renderClientes(document.getElementById("src-cl")?document.getElementById("src-cl").value:""); }
-function delCl(id){confirm2("¿Eliminar esta clienta?").then(function(ok){if(!ok) return;clientes=clientes.filter(function(c){return c.id!==id;});renderClientes(document.getElementById("src-cl").value);updateNav();if(db){db.collection("clientes").doc(String(id)).delete().catch(function(err){console.error("Error eliminando clienta:",err);setSyncStatus("error","Error al eliminar clienta");});}});}
-function viewCliente(id){
-  var c=cById(id);if(!c) return;
-  var items=detalles.filter(function(d){return d.clienteId===c.id;});
-  items=items.slice().sort(function(a,b){
-    var diff=new Date(b.fecha||0)-new Date(a.fecha||0);
-    return diff!==0?diff:(b.id-a.id);
-  });
-  var total=items.reduce(function(s,d){return s+d.precio*d.cantidad;},0);
-  var sc=c.redSocial==="TikTok"?"#010101":"#C13584";
-  var catC=catClienteColor(c.categoria||"Regular");
-  document.getElementById("fotitle").textContent="Perfil de Clienta";
-  document.getElementById("fobody").innerHTML='<div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--light)"><div class="av" style="width:52px;height:52px;font-size:22px">'+esc(c.nombre.charAt(0))+'</div><div><div style="font-family:\'Playfair Display\',serif;font-size:17px;font-weight:600">'+esc(c.nombre)+' <span style="font-size:11px;font-weight:700;background:'+catC.bg+';color:'+catC.fg+';padding:2px 9px;border-radius:10px;vertical-align:middle">'+esc(c.categoria||"Regular")+'</span></div><div style="font-size:13px;color:'+sc+';margin-top:3px;font-weight:500">'+esc(c.nick||"")+'</div></div></div><div class="pgrid"><div class="pbox"><div class="lbl">📞</div><div class="val">'+esc(c.telefono||"—")+'</div></div><div class="pbox"><div class="lbl">📍</div><div class="val">'+esc(c.ciudad||"SN")+'</div></div><div class="pbox"><div class="lbl">🎂</div><div class="val">'+cumStr(c.cumpleDia,c.cumpleMes)+'</div></div><div class="pbox"><div class="lbl">Red Social</div><div class="val">'+esc(c.redSocial||"—")+'</div></div><div class="pbox"><div class="lbl">'+esc(c.docIdent||"DNI")+'</div><div class="val">'+esc(c.numDI||"—")+'</div></div></div>'+(c.notas?'<div class="pbox" style="margin-bottom:14px"><div class="lbl">📝 Notas</div><div class="val">'+esc(c.notas)+'</div></div>':'')+'<div style="font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Historial</div>'+items.map(function(d){return '<div class="hr"><div><div style="font-size:13px;font-weight:500">'+esc(d.producto)+'</div><div style="font-size:11px;color:var(--gray)">'+d.fecha+" · "+esc(d.canal)+'</div></div><div style="text-align:right"><div style="font-size:13px;font-weight:600">'+fmt(d.precio*d.cantidad)+'</div>'+bdg(d.estado)+'</div></div>';}).join("")+'<div style="margin-top:12px;padding:12px 14px;background:linear-gradient(135deg,rgba(242,196,206,.2),rgba(201,169,110,.2));border-radius:12px;display:flex;justify-content:space-between"><span style="font-weight:600">Total acumulado</span><span style="font-family:\'Playfair Display\',serif;font-size:15px;font-weight:600;color:var(--pink)">'+fmt(total)+'</span></div>';
-  document.getElementById("fo").classList.add("open");
-}
-
 // OPEN / CLOSE FORM
 var curFT=null,curFId=null;
 function openForm(type,id){
@@ -1813,179 +1779,6 @@ function closeForm(){document.getElementById("fo").classList.remove("open");docu
 // FORM: CLIENTE
 var CAT_CLIENTE=["Regular","Frecuente","Black","Mayorista"];
 var DOCID_CLIENTE=["DNI","CE","Pasaporte","Otro"];
-function fmCliente(id,body){
-  var c=id?cById(id):{};
-  var catSel=c.categoria||"Regular";
-  var docSel=c.docIdent||"DNI";
-  body.innerHTML=
-    '<div class="frow"><div class="field"><label>Nombre *</label><input id="f-nombre" type="text" value="'+esc(c.nombre||"")+'" placeholder="Valentina García"/></div><div class="field"><label>Red Social</label><select id="f-red">'+["Instagram","TikTok","Facebook","WhatsApp"].map(function(r){return '<option'+(((c.redSocial||"Instagram")===r)?' selected':'')+'>'+r+'</option>';}).join("")+'</select></div></div>'+
-    '<div class="field"><label>Nick (@)</label><input id="f-nick" type="text" value="'+esc((c.nick||"").replace(/^@/,""))+'" placeholder="vale.looks"/></div>'+
-    '<div class="frow"><div class="field"><label>Categoría</label><select id="f-cat2">'+CAT_CLIENTE.map(function(cat){return '<option'+(catSel===cat?' selected':'')+'>'+cat+'</option>';}).join("")+'</select></div><div class="field"><label>Nro. WhatsApp</label><div style="display:flex;gap:8px"><input id="f-tel" type="tel" value="'+esc(c.telefono||"")+'" placeholder="300-000-0000" style="flex:1"/><button type="button" class="btn btn-p btn-sm" style="background:#25D366;flex-shrink:0" onclick="enviarWhatsappCliente()" title="Enviar mensaje de WhatsApp">📨</button></div></div></div>'+
-    '<div class="frow"><div class="field"><label>Doc. Ident.</label><select id="f-docid">'+DOCID_CLIENTE.map(function(d){return '<option'+(docSel===d?' selected':'')+'>'+d+'</option>';}).join("")+'</select></div><div class="field"><label># DI</label><input id="f-numdi" type="text" value="'+esc(c.numDI||"")+'" placeholder="12345678"/></div></div>'+
-    '<div class="frow"><div class="field"><label>Dpto.</label><input id="f-dpto" type="text" value="'+esc(c.dpto||"")+'" placeholder="Lima"/></div><div class="field"><label>Provincia</label><input id="f-prov2" type="text" value="'+esc(c.provincia||"")+'" placeholder="Lima"/></div></div>'+
-    '<div class="frow"><div class="field"><label>Distrito</label><input id="f-ciu" type="text" value="'+esc(c.ciudad||"SN")+'" placeholder="SN"/></div><div class="field"><label>Nombre Local Agencia</label><input id="f-localag" type="text" value="'+esc(c.nombreLocalAgencia||"")+'" placeholder="Agencia Av. Larco"/></div></div>'+
-    '<div class="field"><label>Dirección</label><input id="f-dir" type="text" value="'+esc(c.direccion||"")+'" placeholder="Av. Los Álamos 123"/></div>'+
-    '<div class="field"><label>Referencia</label><input id="f-ref" type="text" value="'+esc(c.referencia||"")+'" placeholder="Frente al parque, casa azul…"/></div>'+
-    '<div class="field"><label>Ubicación (Link Google Maps)</label><input id="f-maps" type="url" value="'+esc(c.ubicacionMaps||"")+'" placeholder="https://maps.app.goo.gl/…"/></div>'+
-    '<div class="frow"><div class="field"><label>Cumpleaños — Día</label><input id="f-dia" type="number" min="1" max="31" value="'+esc(c.cumpleDia||"")+'" placeholder="15"/></div><div class="field"><label>Mes</label><select id="f-mes"><option value="">— Mes —</option>'+MES.map(function(m,i){return '<option value="'+(i+1)+'"'+(c.cumpleMes===i+1?' selected':'')+'>'+m+'</option>';}).join("")+'</select></div></div>'+
-    '<div class="field"><label>Notas</label><textarea id="f-notas" placeholder="Preferencias, tallas…">'+esc(c.notas||"")+'</textarea></div>'+
-    '<div class="fftr"><button class="btn btn-s" onclick="closeForm()">Cancelar</button><button class="btn btn-p" onclick="saveCl('+( id||"null")+')">✓ Guardar</button></div>';
-}
-function enviarWhatsappCliente(){
-  var tel=document.getElementById("f-tel")?document.getElementById("f-tel").value.replace(/\D/g,""):"";
-  if(!tel){alert("Ingresa un número de WhatsApp primero.");return;}
-  var nombre=document.getElementById("f-nombre")?document.getElementById("f-nombre").value:"";
-  var msg="Hola"+(nombre?" "+nombre:"")+"! 👋 Te escribimos de JESSDAY STYLE.";
-  var phone=tel.length<=9?"51"+tel:tel; // asume Perú si no trae código de país
-  window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg),"_blank");
-}
-function saveCl(id){
-  var nombre=document.getElementById("f-nombre").value.trim();
-  if(!nombre){alert("El nombre es requerido");return;}
-  var obj={
-    nombre:nombre,
-    nick:"@"+(document.getElementById("f-nick").value.replace(/^@/,"")),
-    redSocial:document.getElementById("f-red").value,
-    categoria:document.getElementById("f-cat2").value,
-    telefono:document.getElementById("f-tel").value,
-    docIdent:document.getElementById("f-docid").value,
-    numDI:document.getElementById("f-numdi").value,
-    ciudad:document.getElementById("f-ciu").value||"SN",
-    dpto:document.getElementById("f-dpto").value,
-    provincia:document.getElementById("f-prov2").value,
-    nombreLocalAgencia:document.getElementById("f-localag").value,
-    direccion:document.getElementById("f-dir").value,
-    referencia:document.getElementById("f-ref").value,
-    ubicacionMaps:document.getElementById("f-maps").value,
-    cumpleDia:Number(document.getElementById("f-dia").value)||"",
-    cumpleMes:Number(document.getElementById("f-mes").value)||"",
-    notas:document.getElementById("f-notas").value
-  };
-  var isNew=!id;
-  if(id){ obj.id=id; clientes=clientes.map(function(c){return c.id===id?Object.assign({},c,obj):c;}); }
-  else{ obj.id=uid(); obj.creado=today(); clientes.push(obj); }
-  // Actualización optimista: la UI refleja el cambio de inmediato,
-  // y en paralelo se escribe solo este documento en la colección "clientes".
-  closeForm();renderClientes(document.getElementById("src-cl").value);updateNav();
-  guardarClienteEnColeccion(obj,isNew);
-}
-
-// Escribe (crea o actualiza) UN documento en la colección "clientes".
-// A diferencia del modelo anterior, esto ya NO reescribe el resto del negocio.
-function guardarClienteEnColeccion(obj,isNew){
-  if(!db){ return; } // sin conexión a Firestore todavía (modo offline inicial)
-  db.collection("clientes").doc(String(obj.id)).set(obj,{merge:true}).catch(function(err){
-    console.error("Error guardando clienta en Firestore:",err);
-    setSyncStatus("error","Error al guardar clienta");
-  });
-}
-
-// FORM: VENTA (with searchable cliente)
-function fmVenta(id,body){
-  var d=id?detalles.find(function(x){return x.id===id;}):null;
-  var selC=d&&d.clienteId?cById(d.clienteId):null;
-  var selVal=selC?selC.nombre+(selC.nick?" ("+selC.nick+")":""):"";
-  var cats=["Ropa Dama","Accesorios","Calzado","Bolsos Carteras","Maquillaje y Salud","Tecnología","Ropa Interior y Lencería","Otro"];
-  var cans=["TikTok Live","Instagram Live","Instagram Story","TikTok","WhatsApp","Presencial","Otro"];
-  body.innerHTML=
-    '<div class="field"><label>Clienta *</label><div class="sdr"><input type="text" id="cv-search" placeholder="Buscar por nombre o @nick…" value="'+esc(selVal)+'" autocomplete="off" oninput="filterDrop(\'cv-search\',\'cv-drop\',\'selectCV\')" onfocus="filterDrop(\'cv-search\',\'cv-drop\',\'selectCV\')"/><input type="hidden" id="cv-id" value="'+(d&&d.clienteId?d.clienteId:"")+'" /><div class="sdrd" id="cv-drop"></div></div></div>'+
-    '<div class="frow"><div class="field"><label>Fecha</label><input id="f-fecha" type="date" value="'+(d?d.fecha:today())+'"/></div><div class="field"><label>Canal</label><select id="f-canal">'+cans.map(function(c){return '<option'+((d&&d.canal===c||(!d&&c==="TikTok Live"))?' selected':'')+'>'+c+'</option>';}).join("")+'</select></div></div>'+
-    '<div class="field"><label>Código QR</label><div style="display:flex;gap:8px"><input id="f-qr" type="text" value="'+esc(d&&d.codigoQR||"")+'" placeholder="Código QR" style="flex:1"/><button class="btn btn-p btn-sm" onclick="simQR()">🔲 Escanear</button><input type="file" id="qrphotoinput" accept="image/*" capture="environment" style="display:none" onchange="handleQRPhoto(this)"/><button class="btn btn-g btn-sm" onclick="document.getElementById(\'qrphotoinput\').click()" title="Tomar foto del QR">📷</button></div></div>'+
-    '<input type="hidden" id="f-prodid" value="'+esc(d&&d.productoId||"")+'"/>'+
-    '<div class="field"><label>O selecciona un producto disponible</label><div class="sdr"><input type="text" id="pv-search" placeholder="Buscar producto disponible…" autocomplete="off" oninput="filterProdDrop(this.value)" onfocus="filterProdDrop(this.value)"/><div class="sdrd" id="pv-drop"></div></div></div>'+
-    '<div class="field"><label>Producto *</label><input id="f-prod" type="text" value="'+esc(d&&d.producto||"")+'" placeholder="Blusa floral manga larga" oninput="document.getElementById(\'f-prodid\').value=\'\'"/></div>'+
-    '<div class="frow"><div class="field"><label>Categoría</label><select id="f-cat">'+cats.map(function(c){return '<option'+((d&&d.categoria===c||(!d&&c==="Ropa Dama"))?' selected':'')+'>'+c+'</option>';}).join("")+'</select></div><div class="field"><label>Talla</label><input id="f-talla" type="text" value="'+esc(d&&d.talla||"")+'" placeholder="S, M, L…"/></div></div>'+
-    '<div class="frow"><div class="field"><label>Color</label><input id="f-color" type="text" value="'+esc(d&&d.color||"")+'" placeholder="Blanco…"/></div><div class="field"><label>Cantidad</label><input id="f-cant" type="number" min="1" value="'+(d?d.cantidad:1)+'" oninput="updSubV(\'cant\')"/></div></div>'+
-    '<div class="frow"><div class="field"><label>Precio unitario (S/)</label><input id="f-precio" type="number" step="any" value="'+(d && d.precio != null ? d.precio : "")+'" placeholder="85.00" oninput="updSubV(\'precio\')"/></div><div class="field"><label>Subtotal (S/)</label><input id="f-subtotal" type="number" step="any" value="'+(d && d.precio != null ? Number((d.precio*d.cantidad).toFixed(2)) : "")+'" placeholder="0" oninput="updSubV(\'subtotal\')"/></div></div>'+
-    '<div class="field"><label>Descripción</label><textarea id="f-vdesc" rows="2" placeholder="Detalles adicionales del producto vendido…">'+esc(d&&d.descripcion||"")+'</textarea></div>'+
-    '<div class="field"><label>Nota</label><textarea id="f-vnota" rows="2" placeholder="Observaciones de la venta…">'+esc(d&&d.nota||"")+'</textarea></div>'+
-    '<div class="field"><label>Estado de pago</label><select id="f-estpago"><option'+((d&&d.estadoPago==="Pendiente de Pago")||!d?' selected':'')+'>Pendiente de Pago</option><option'+(d&&d.estadoPago==="Pagado"?' selected':'')+'>Pagado</option></select></div>'+
-    '<div class="field"><label>Estado (orden de venta)</label><select id="f-estov"><option value="Sin_OV"'+((!d||d.estado==="Sin_OV")?' selected':'')+'>Sin_OV — Sin orden asignada</option><option value="Con_OV"'+(d&&d.estado==="Con_OV"?' selected':'')+'>Con_OV — Con orden asignada</option></select><div style="font-size:11px;color:var(--gray);margin-top:4px">⚠️ Cambiar esto manualmente no crea ni elimina una orden real — solo corrige la etiqueta si quedó desincronizada.</div></div>'+
-    '<div class="stbox" id="stv" style="display:none"></div>'+
-    '<div class="fftr"><button class="btn btn-s" onclick="closeForm()">Cancelar</button><button class="btn btn-p" onclick="saveV('+(id||"null")+')">✓ Guardar</button></div>';
-  updSubV();
-}
-// Cálculo bidireccional Precio Unitario ↔ Subtotal.
-// source indica qué campo disparó el cambio, para saber cuál recalcular:
-// - "precio" o "cant" -> recalcula Subtotal = Precio × Cantidad
-// - "subtotal" -> recalcula Precio = Subtotal ÷ Cantidad (Cantidad se mantiene fija)
-function updSubV(source){
-  var pEl=document.getElementById("f-precio");
-  var cEl=document.getElementById("f-cant");
-  var sEl=document.getElementById("f-subtotal");
-  if(!pEl||!cEl||!sEl) return;
-  var p=Number(pEl.value)||0;
-  var c=Number(cEl.value)||0;
-  var s=Number(sEl.value)||0;
-  if(source==="subtotal"){
-    if(c>0) pEl.value=Number((s/c).toFixed(4));
-  } else {
-    sEl.value=(p&&c)?Number((p*c).toFixed(2)):"";
-  }
-  var el=document.getElementById("stv");
-  if(el){el.style.display="none";}
-}
-function simQR(){
-  openScanner(function(code){
-    document.getElementById("f-qr").value=code;
-    var prod=productos.find(function(p){return p.codigoQR===code;});
-    if(prod){
-      document.getElementById("f-prod").value=prod.nombre;
-      document.getElementById("f-prodid").value=prod.id;
-      document.getElementById("f-cat").value=prod.categoria;
-      document.getElementById("f-precio").value=prod.precioVenta;
-      updSubV();
-      flashScanMsg("✓ "+prod.nombre+" — autocompletado");
-    } else {
-      document.getElementById("f-prodid").value="";
-      flashScanMsg("Código leído: "+code+" (no está en el catálogo)");
-    }
-  });
-}
-function filterProdDrop(q){
-  var dd=document.getElementById("pv-drop");
-  if(!dd) return;
-  var qq=(q||"").toLowerCase();
-  var disponibles=productos.filter(function(p){return estProd(p.stock)==="Disponible";});
-  var list=disponibles.filter(function(p){
-    return !qq||p.nombre.toLowerCase().indexOf(qq)>=0||(p.codigoQR||"").toLowerCase().indexOf(qq)>=0||(p.categoria||"").toLowerCase().indexOf(qq)>=0;
-  });
-  if(!list.length){
-    dd.classList.add("open");
-    dd.innerHTML='<div style="padding:12px 14px;font-size:13px;color:var(--gray)">Sin productos disponibles</div>';
-    return;
-  }
-  dd.classList.add("open");
-  dd.innerHTML=list.map(function(p){
-    return '<div class="sdri" onclick="selectProdVenta('+p.id+')">'+
-      '<div class="sdrav" style="border-radius:10px;background:'+(p.foto?'url('+encodeURI(p.foto)+') center/cover':'linear-gradient(135deg,#F2C4CE,#E8C9A0)')+'">'+(p.foto?'':catE(p.categoria))+'</div>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:14px;font-weight:500">'+esc(p.nombre)+'</div>'+
-        '<div style="font-size:11px;display:flex;gap:6px;flex-wrap:wrap"><span style="color:var(--success);font-weight:600">● Disponible</span><span style="color:var(--gray)">Stock: '+p.stock+'</span><span style="color:var(--pink);font-weight:600">'+fmt(p.precioVenta)+'</span></div>'+
-      '</div>'+
-    '</div>';
-  }).join("");
-}
-function selectProdVenta(id){
-  var p=pById(id);if(!p) return;
-  document.getElementById("f-qr").value=p.codigoQR||"";
-  document.getElementById("f-prod").value=p.nombre;
-  document.getElementById("f-prodid").value=p.id;
-  document.getElementById("f-cat").value=p.categoria;
-  document.getElementById("f-precio").value=p.precioVenta;
-  var search=document.getElementById("pv-search");
-  if(search) search.value=p.nombre;
-  var dd=document.getElementById("pv-drop");
-  if(dd) dd.classList.remove("open");
-  updSubV();
-  flashScanMsg("✓ "+p.nombre+" — autocompletado");
-}
-document.addEventListener("click",function(e){
-  var dd=document.getElementById("pv-drop");
-  var inp=document.getElementById("pv-search");
-  if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp) dd.classList.remove("open");
-});
-
 
 // ══════════════════════════════════════════════════════════════════════════
 // ESCÁNER DE CÁMARA QR (jsQR) — lectura real desde la cámara del dispositivo
@@ -2278,106 +2071,6 @@ function simQR(){
   });
 }
 
-// Función principal para GUARDAR LA VENTA
-function saveV(id){
-  var cid=Number(document.getElementById("cv-id").value);
-  var prod=document.getElementById("f-prod").value.trim();
-  
-  // Capturamos el precio como texto para permitir "0"
-  var precioInput = document.getElementById("f-precio").value.trim();
-  var precio = Number(precioInput);
-
-  if(!cid){alert("Selecciona una clienta");return;}
-  if(!prod){alert("El producto es requerido");return;}
-  if(precioInput === "" || isNaN(precio)){alert("Ingresa un precio válido (puede ser 0)");return;}
-  
-  var nuevoProdId=Number(document.getElementById("f-prodid").value)||null;
-  var nuevaCant=Number(document.getElementById("f-cant").value)||1;
-  var obj={clienteId:cid,fecha:document.getElementById("f-fecha").value,codigoQR:document.getElementById("f-qr").value,producto:prod,productoId:nuevoProdId,categoria:document.getElementById("f-cat").value,talla:document.getElementById("f-talla").value,color:document.getElementById("f-color").value,cantidad:nuevaCant,precio:precio,canal:document.getElementById("f-canal").value,estado:document.getElementById("f-estov").value,estadoPago:document.getElementById("f-estpago").value,descripcion:document.getElementById("f-vdesc").value,nota:document.getElementById("f-vnota").value};
-
-  var anterior=id?detalles.find(function(d){return d.id===id;}):null;
-  var productosAfectados={};
-
-  if(anterior&&anterior.productoId){
-    var pOld=pById(anterior.productoId);
-    if(pOld){
-      pOld.stock=(Number(pOld.stock)||0)+(Number(anterior.cantidad)||0);
-      pOld.estadoProducto=estProd(pOld.stock);
-      productosAfectados[pOld.id]=pOld;
-    }
-  }
-  if(nuevoProdId){
-    var pNew=productosAfectados[nuevoProdId]||pById(nuevoProdId);
-    if(pNew){
-      pNew.stock=Math.max(0,(Number(pNew.stock)||0)-nuevaCant);
-      pNew.estadoProducto=estProd(pNew.stock);
-      productosAfectados[pNew.id]=pNew;
-    }
-  }
-  Object.keys(productosAfectados).forEach(function(pid){
-    productos=productos.map(function(p){return p.id===Number(pid)?productosAfectados[pid]:p;});
-    guardarProductoEnColeccion(productosAfectados[pid],false);
-  });
-
-  if(id){detalles=detalles.map(function(d){return d.id===id?Object.assign({},d,obj):d;});}
-  else{obj.id=uid();detalles.push(obj);}
-  closeForm();renderVentas();renderProductosCur();updateNav();
-  var savedObj=detalles.find(function(d){return d.id===(id||obj.id);});
-  guardarDetalleEnColeccion(savedObj);
-}
-
-function guardarDetalleEnColeccion(obj){
-  if(!db||!obj) return;
-  db.collection("detalles").doc(String(obj.id)).set(obj,{merge:true}).catch(function(err){
-    console.error("Error guardando venta en Firestore:",err);
-    setSyncStatus("error","Error al guardar venta");
-  });
-}
-
-// --- FIN DEL CÓDIGO RESTAURADO ---
-function renderVentas(){
-  var q=(document.getElementById("src-v")?document.getElementById("src-v").value:"").toLowerCase();
-  var fe=document.getElementById("fv-est")?document.getElementById("fv-est").value:"";
-  var fc=document.getElementById("fv-can")?document.getElementById("fv-can").value:"";
-  var fp=document.getElementById("fv-pago")?document.getElementById("fv-pago").value:"";
-  var f=detalles.filter(function(d){
-    var c=cById(d.clienteId);
-    return(d.producto.toLowerCase().indexOf(q)>=0||(c&&c.nombre.toLowerCase().indexOf(q)>=0)||(c&&(c.nick||"").toLowerCase().indexOf(q)>=0)||(d.codigoQR||"").toLowerCase().indexOf(q)>=0)&&(!fe||d.estado===fe)&&(!fc||d.canal===fc)&&(!fp||(d.estadoPago||"Pendiente de Pago")===fp);
-  });
-  f=f.slice().sort(function(a,b){
-    var diff=new Date(b.fecha||0)-new Date(a.fecha||0);
-    return diff!==0?diff:(b.id-a.id);
-  });
-  var pg=pagSlice("ventas",f);
-  document.getElementById("lst-v").innerHTML=(pg.items.length?pg.items.map(function(d){
-    var c=cById(d.clienteId);
-    var sc=c&&c.redSocial==="TikTok"?"#010101":"#C13584";
-    return '<div class="card" onclick="cardEdit(event,\'venta\','+d.id+')"><div class="crow"><div style="width:38px;height:38px;border-radius:10px;background:rgba(242,196,206,.4);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+catE(d.categoria)+'</div><div class="ci">'+
-      '<div class="cn">'+(c&&c.nick?'<span style="color:'+sc+'">'+esc(c.nick)+'</span>':'<span style="color:var(--gray);font-weight:400">Sin nick</span>')+' <span style="font-size:11px;font-weight:600;color:var(--gray)">· '+fechaCorta(d.fecha)+'</span></div>'+
-      '<div class="cm"><span>📞 '+esc(c&&c.telefono||"—")+'</span></div>'+
-      '<div class="cm" style="margin-top:4px;font-size:13px;color:var(--dark);font-weight:600">'+esc(d.producto)+'</div>'+
-      '<div class="cm">'+(d.talla?'<span>Talla: '+esc(d.talla)+'</span>':"")+(d.color?'<span>'+(d.talla?" | ":"")+'Color: '+esc(d.color)+'</span>':"")+'</div>'+
-      '<div class="cm"><span style="background:var(--light);padding:2px 8px;border-radius:10px">'+esc(d.canal)+'</span></div>'+
-    '</div><div class="ca" style="flex-shrink:0;max-width:118px"><div class="sub" style="font-size:10px;color:var(--gray)">Cantidad</div><div class="amt" style="margin-bottom:6px">'+d.cantidad+'</div><div class="sub" style="font-size:10px;color:var(--gray)">Subtotal</div><div class="amt">'+fmt(d.precio*d.cantidad)+'</div><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">'+bdg(d.estado)+bdg(d.estadoPago||"Pendiente de Pago")+'</div></div><div class="cact"><button class="ib" onclick="openForm(\'venta\','+d.id+')">'+SVGe+'</button><button class="ib ibd" onclick="delV('+d.id+')">'+SVGt+'</button></div></div></div>';
-  }).join(""):'<div class="empty"><div style="font-size:32px;margin-bottom:12px">🛍️</div>Sin ventas encontradas</div>')+pagControlHTML("ventas",pg,"renderVentas");
-}
-function delV(id){confirm2("¿Eliminar esta venta?").then(function(ok){
-  if(!ok) return;
-  var d=detalles.find(function(x){return x.id===id;});
-  if(d&&d.productoId){
-    var p=pById(d.productoId);
-    if(p){
-      p.stock=(Number(p.stock)||0)+(Number(d.cantidad)||0);
-      p.estadoProducto=estProd(p.stock);
-      productos=productos.map(function(x){return x.id===p.id?p:x;});
-      guardarProductoEnColeccion(p,false);
-      renderProductosCur();
-    }
-  }
-  detalles=detalles.filter(function(x){return x.id!==id;});
-  renderVentas();updateNav();
-  if(db){db.collection("detalles").doc(String(id)).delete().catch(function(err){console.error("Error eliminando venta:",err);setSyncStatus("error","Error al eliminar venta");});}
-});}
 
 // ORDENES
 function renderOrdenes(){
@@ -4168,5 +3861,14 @@ updateNav=function(){ _origUpdateNav(); scheduleSave(); };
 <!-- Enlazamos los nuevos módulos JS -->
 <script type="module" src="js/firebase-config.js"></script>
 <script type="module" src="js/auth.js"></script>
+<!-- Enlazamos los nuevos módulos JS -->
+<script type="module" src="js/firebase-config.js"></script>
+<script type="module" src="js/auth.js"></script>
+<script type="module" src="js/ventas.js"></script> <!-- AQUÍ ESTÁ EL NUEVO -->
+<!-- Enlazamos los nuevos módulos JS -->
+<script type="module" src="js/firebase-config.js"></script>
+<script type="module" src="js/auth.js"></script>
+<script type="module" src="js/ventas.js"></script>
+<script type="module" src="js/clientes.js"></script> <!-- AQUÍ ESTÁ EL NUEVO -->
 </body>
 </html>
