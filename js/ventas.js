@@ -104,6 +104,9 @@ document.addEventListener("click",function(e){
   if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp) dd.classList.remove("open");
 });
 // Función principal para GUARDAR LA VENTA
+// ==========================================
+// FUNCIÓN saveV LIMPIA Y SEGURA
+// ==========================================
 function saveV(id){
   var cid=Number(document.getElementById("cv-id").value);
   var prod=document.getElementById("f-prod").value.trim();
@@ -116,39 +119,77 @@ function saveV(id){
   if(!prod){alert("El producto es requerido");return;}
   if(precioInput === "" || isNaN(precio)){alert("Ingresa un precio válido (puede ser 0)");return;}
   
-  var nuevoProdId=Number(document.getElementById("f-prodid").value)||null;
-  var nuevaCant=Number(document.getElementById("f-cant").value)||1;
-  var obj={clienteId:cid,fecha:document.getElementById("f-fecha").value,codigoQR:document.getElementById("f-qr").value,producto:prod,productoId:nuevoProdId,categoria:document.getElementById("f-cat").value,talla:document.getElementById("f-talla").value,color:document.getElementById("f-color").value,cantidad:nuevaCant,precio:precio,canal:document.getElementById("f-canal").value,estado:document.getElementById("f-estov").value,estadoPago:document.getElementById("f-estpago").value,descripcion:document.getElementById("f-vdesc").value,nota:document.getElementById("f-vnota").value};
+  try {
+    var nuevoProdId=Number(document.getElementById("f-prodid").value)||null;
+    var nuevaCant=Number(document.getElementById("f-cant").value)||1;
+    var obj={
+      clienteId:cid,
+      fecha:document.getElementById("f-fecha").value,
+      codigoQR:document.getElementById("f-qr").value,
+      producto:prod,
+      productoId:nuevoProdId,
+      categoria:document.getElementById("f-cat").value,
+      talla:document.getElementById("f-talla").value,
+      color:document.getElementById("f-color").value,
+      cantidad:nuevaCant,
+      precio:precio,
+      canal:document.getElementById("f-canal").value,
+      estado:document.getElementById("f-estov").value,
+      estadoPago:document.getElementById("f-estpago").value,
+      descripcion:document.getElementById("f-vdesc").value,
+      nota:document.getElementById("f-vnota").value
+    };
 
-  var anterior=id?detalles.find(function(d){return d.id===id;}):null;
-  var productosAfectados={};
+    var anterior=id ? window.detalles.find(function(d){return d.id===id;}) : null;
+    var productosAfectados={};
 
-  if(anterior&&anterior.productoId){
-    var pOld=pById(anterior.productoId);
-    if(pOld){
-      pOld.stock=(Number(pOld.stock)||0)+(Number(anterior.cantidad)||0);
-      pOld.estadoProducto=estProd(pOld.stock);
-      productosAfectados[pOld.id]=pOld;
+    // Devolver stock si se editó la venta
+    if(anterior&&anterior.productoId){
+      var pOld=window.pById(anterior.productoId);
+      if(pOld){
+        pOld.stock=(Number(pOld.stock)||0)+(Number(anterior.cantidad)||0);
+        pOld.estadoProducto=window.estProd(pOld.stock);
+        productosAfectados[pOld.id]=pOld;
+      }
     }
-  }
-  if(nuevoProdId){
-    var pNew=productosAfectados[nuevoProdId]||pById(nuevoProdId);
-    if(pNew){
-      pNew.stock=Math.max(0,(Number(pNew.stock)||0)-nuevaCant);
-      pNew.estadoProducto=estProd(pNew.stock);
-      productosAfectados[pNew.id]=pNew;
+    
+    // Restar stock al nuevo producto
+    if(nuevoProdId){
+      var pNew=productosAfectados[nuevoProdId]||window.pById(nuevoProdId);
+      if(pNew){
+        pNew.stock=Math.max(0,(Number(pNew.stock)||0)-nuevaCant);
+        pNew.estadoProducto=window.estProd(pNew.stock);
+        productosAfectados[pNew.id]=pNew;
+      }
     }
-  }
-  Object.keys(productosAfectados).forEach(function(pid){
-    productos=productos.map(function(p){return p.id===Number(pid)?productosAfectados[pid]:p;});
-    guardarProductoEnColeccion(productosAfectados[pid],false);
-  });
+    
+    // Guardar cambios en el catálogo
+    Object.keys(productosAfectados).forEach(function(pid){
+      window.productos=window.productos.map(function(p){return p.id===Number(pid)?productosAfectados[pid]:p;});
+      if(window.guardarProductoEnColeccion) window.guardarProductoEnColeccion(productosAfectados[pid],false);
+    });
 
-  if(id){detalles=detalles.map(function(d){return d.id===id?Object.assign({},d,obj):d;});}
-  else{obj.id=uid();detalles.push(obj);}
-  closeForm();renderVentas();renderProductosCur();updateNav();
-  var savedObj=detalles.find(function(d){return d.id===(id||obj.id);});
-  guardarDetalleEnColeccion(savedObj);
+    if(id){
+      window.detalles=window.detalles.map(function(d){return d.id===id?Object.assign({},d,obj):d;});
+    } else {
+      obj.id=window.uid();
+      window.detalles.push(obj);
+    }
+    
+    // Actualizar pantalla
+    window.closeForm();
+    if(window.renderVentas) window.renderVentas();
+    if(window.renderProductosCur) window.renderProductosCur();
+    if(window.updateNav) window.updateNav();
+    
+    // Guardar venta en base de datos
+    var savedObj=window.detalles.find(function(d){return d.id===(id||obj.id);});
+    if(window.guardarDetalleEnColeccion) window.guardarDetalleEnColeccion(savedObj);
+
+  } catch (error) {
+    console.error("Error al guardar venta:", error);
+    alert("Ocurrió un problema al guardar: " + error.message);
+  }
 }
 function guardarDetalleEnColeccion(obj){
   if(!db||!obj) return;
