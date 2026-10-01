@@ -86,39 +86,35 @@ function descargarEtiquetaPDF(id){
     var qrX=16,qrY=(labelH-qrSize)/2;
     ctx.drawImage(qrImgEl,qrX,qrY,qrSize,qrSize);
 
-    var textX=qrX+qrSize+16;
-    var maxW=labelW-16-textX;
-
-    ctx.font="bold 15px Arial";
-    var nombreLines=window.wrapTextLines ? window.wrapTextLines(ctx,p.nombre,maxW,3) : [p.nombre.slice(0, 25)];
-
-    var lineHCodigo=14,gap1=5,lineHNombre=18,gap2=7,lineHVenta=20,gap3=5,lineHCosto=14;
-    var totalH=lineHCodigo+gap1+nombreLines.length*lineHNombre+gap2+lineHVenta+gap3+lineHCosto;
-    var y=(labelH-totalH)/2;
-
-    ctx.font="bold 12px Arial";
-    ctx.fillStyle="#000000";
-    y+=lineHCodigo;
-    ctx.fillText(p.codigoQR||"",textX,y);
-
-    y+=gap1;
-    ctx.font="bold 15px Arial";
-    nombreLines.forEach(function(line){
-      y+=lineHNombre;
-      ctx.fillText(line,textX,y);
-    });
-
-    y+=gap2;
-    ctx.font="bold 17px Arial";
-    y+=lineHVenta;
-    ctx.fillText("Venta: "+window.fmt(p.precioVenta),textX,y);
-
-    y+=gap3;
-    ctx.font="12px Arial";
-    ctx.fillStyle="#555555";
-    y+=lineHCosto;
-    ctx.fillText("Costo: "+window.fmt(p.precioCompra||0),textX,y);
-    ctx.fillStyle="#000000";
+  var textX=qrX+qrSize+16;
+  var maxW=labelW-16-textX;
+  ctx.font="bold 15px Arial";
+  var nombreLines=window.wrapTextLines ? window.wrapTextLines(ctx,p.nombre,maxW,3) : [p.nombre.slice(0, 25)];
+  // Se eliminaron lineHCodigo, gap1, gap3 y lineHCosto:
+  // ya NO hay código arriba-derecha ni línea de Costo abajo.
+  var gap2=7,lineHNombre=18,lineHVenta=20;
+  var totalH=nombreLines.length*lineHNombre+gap2+lineHVenta;
+  var y=(labelH-totalH)/2;
+  ctx.textAlign="left";
+  ctx.fillStyle="#000000";
+  ctx.font="bold 15px Arial";
+  nombreLines.forEach(function(line){
+    y+=lineHNombre;
+    ctx.fillText(line,textX,y);
+  });
+  y+=gap2;
+  ctx.font="bold 17px Arial";
+  y+=lineHVenta;
+  ctx.fillText("Venta: "+window.fmt(p.precioVenta),textX,y);
+  // ── Código QR ahora DEBAJO del cuadrado, centrado horizontalmente ──
+  var qrBottom=(typeof qrY!=="undefined")?(qrY+qrSize):(labelH-10);
+  ctx.font="bold 12px Arial";
+  ctx.fillStyle="#000000";
+  ctx.textAlign="center";
+  ctx.fillText(p.codigoQR||"",qrX+qrSize/2,qrBottom+14);
+  // Restaurar estado del contexto para lo que sigue (imgData / PDF)
+  ctx.textAlign="left";
+  ctx.fillStyle="#000000";
 
     var imgData=cv.toDataURL("image/jpeg",0.92);
     if(window.buildSimplePDF){

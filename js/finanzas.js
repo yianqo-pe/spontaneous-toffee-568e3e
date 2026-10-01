@@ -31,50 +31,109 @@ function renderCompras(){
   }).join(""):'<div class="empty"><div style="font-size:32px;margin-bottom:12px">🧾</div>Sin compras registradas</div>')+pagControlHTML("compras",pg,"renderCompras");
 }
 // ==========================================
-// FUNCIÓN regInv LIMPIA Y SEGURA
-// ==========================================
-// ==========================================
-// FUNCIÓN regInv LIMPIA Y SEGURA
+// FUNCIÓN regInv — usa una transacción de Firestore (runTransaction)
+// para que la verificación de "¿ya fue ingresada?", el aumento de
+// stock de cada producto y el registro de las entradas de inventario
+// ocurran de forma atómica. Corrige el hallazgo D6 del informe técnico:
+// si dos dispositivos presionan "📦 → Inv." sobre la misma compra casi
+// al mismo tiempo, la segunda transacción vuelve a leer el estado real
+// en Firestore, ve que ya quedó "Ingresado" y se cancela sola, en vez
+// de volver a sumar el stock por segunda vez.
 // ==========================================
 function regInv(id){
   var c = window.compras.find(function(x){return x.id===id;});
   if(!c) return;
-  if(c.estado==="Ingresado"){alert("Ya fue ingresada.");return;}
-  
-  try {
-    var nuevasEntradas=[];
-    c.items.forEach(function(item){
-      var idx = window.productos.findIndex(function(p){return p.id===item.productoId;});
-      if(idx>=0){
-        var newStock = (window.productos[idx].stock||0) + item.cantidad;
-        window.productos[idx] = Object.assign({}, window.productos[idx], {
-          stock: newStock, 
-          estadoProducto: window.estProd(newStock) 
-        });
-        if(window.guardarProductoEnColeccion) window.guardarProductoEnColeccion(window.productos[idx], false); 
-      }
-      var entrada={id: window.uid(), productoId: item.productoId, compraId: c.id, cantidad: item.cantidad, fecha: window.today()};
-      window.inventario.push(entrada);
-      nuevasEntradas.push(entrada);
+  if(!window.db){alert("No hay conexión con la base de datos.");return;}
+
+  var compraRef = window.db.collection("compras").doc(String(id));
+  var idsProductos = c.items.map(function(item){return item.productoId;}).filter(function(pid){return pid!=null;});
+  var idsUnicos = idsProductos.filter(function(pid,i){return idsProductos.indexOf(pid)===i;});
+  var refsProductos = {};
+  idsUnicos.forEach(function(pid){ refsProductos[pid] = window.db.collection("productos").doc(String(pid)); });
+
+  var btn = document.querySelector("#cmp-"+id+" .btn-inv");
+  if(btn){btn.disabled=true;btn.textContent="Procesando…";}
+
+  window.db.runTransaction(function(transaction){
+    // 1) TODAS las lecturas primero: la compra y cada producto afectado,
+    //    leídos en este instante desde Firestore (no del arreglo local).
+    var getCompra=transaction.get(compraRef);
+    var getsProductos=idsUnicos.map(function(pid){return transaction.get(refsProductos[pid]);});
+
+    return Promise.all([getCompra].concat(getsProductos)).then(function(results){
+      var compraSnap=results[0];
+      var snapsProductos=results.slice(1);
+
+      if(!compraSnap.exists){ throw new Error("NO_EXISTE"); }
+      if(compraSnap.data().estado==="Ingresado"){ throw new Error("YA_INGRESADA"); }
+
+      var stockActual={}; // productoId -> stock leído de Firestore (o null si el producto ya no existe)
+      idsUnicos.forEach(function(pid,i){
+        stockActual[pid]=snapsProductos[i].exists?(Number(snapsProductos[i].data().stock)||0):null;
+      });
+
+      // Sumamos por producto todas las cantidades de esta compra, por si
+      // el mismo producto aparece en más de un item.
+      var sumaCantidades={};
+      c.items.forEach(function(item){
+        if(item.productoId==null) return;
+        sumaCantidades[item.productoId]=(sumaCantidades[item.productoId]||0)+(Number(item.cantidad)||0);
+      });
+
+      // 2) Recién ahora las escrituras, todas dentro de la misma transacción.
+      Object.keys(sumaCantidades).forEach(function(pid){
+        if(stockActual[pid]==null) return; // el producto ya no existe en el catálogo
+        var nuevoStock=stockActual[pid]+sumaCantidades[pid];
+        transaction.update(refsProductos[pid],{stock:nuevoStock,estadoProducto:window.estProd(nuevoStock)});
+      });
+
+      var nuevasEntradas=[];
+      c.items.forEach(function(item){
+        var entrada={id:window.uid(),productoId:item.productoId,compraId:c.id,cantidad:item.cantidad,fecha:window.today()};
+        transaction.set(window.db.collection("inventario").doc(String(entrada.id)),entrada);
+        nuevasEntradas.push(entrada);
+      });
+
+      transaction.update(compraRef,{estado:"Ingresado"});
+
+      return {nuevasEntradas:nuevasEntradas,stockActual:stockActual,sumaCantidades:sumaCantidades};
     });
-    
-    window.compras = window.compras.map(function(x){return x.id===id?Object.assign({},x,{estado:"Ingresado"}):x;});
+  }).then(function(resultado){
+    // La transacción ya se confirmó en Firestore: recién aquí actualizamos
+    // el estado local y la pantalla.
+    Object.keys(resultado.sumaCantidades).forEach(function(pid){
+      if(resultado.stockActual[pid]==null) return;
+      var nuevoStock=resultado.stockActual[pid]+resultado.sumaCantidades[pid];
+      window.productos=window.productos.map(function(p){
+        return String(p.id)===String(pid)?Object.assign({},p,{stock:nuevoStock,estadoProducto:window.estProd(nuevoStock)}):p;
+      });
+    });
+    window.inventario=window.inventario.concat(resultado.nuevasEntradas);
+    window.compras=window.compras.map(function(x){return x.id===id?Object.assign({},x,{estado:"Ingresado"}):x;});
+
     renderCompras();
-    
+    if(window.renderProductosCur) window.renderProductosCur();
+    if(window.renderInvCur) window.renderInvCur();
     if(window.updateNav) window.updateNav();
-    
-    var saved = window.compras.find(function(x){return x.id===id;});
-    window.guardarCompraEnColeccion(saved, false);
-    if(window.guardarInventarioEnColeccion) window.guardarInventarioEnColeccion(nuevasEntradas);
-    
+
     var el=document.getElementById("cmp-"+id);
     if(el){el.classList.add("flash");setTimeout(function(){el.classList.remove("flash");},2500);}
-    
-  } catch (error) {
-    console.error("Error al registrar inventario:", error);
-    alert("Ocurrió un problema al enviar al inventario: " + error.message);
-  }
+  }).catch(function(error){
+    if(error&&error.message==="YA_INGRESADA"){
+      alert("Ya fue ingresada.");
+      renderCompras();
+    } else if(error&&error.message==="NO_EXISTE"){
+      alert("Esta compra ya no existe (puede que se haya eliminado desde otro dispositivo).");
+      renderCompras();
+    } else {
+      console.error("Error al registrar inventario:", error);
+      alert("Ocurrió un problema al enviar al inventario: " + (error&&error.message?error.message:error));
+    }
+  }).finally(function(){
+    if(btn){btn.disabled=false;btn.textContent="📦 → Inv.";}
+  });
 }
+
 function fmCompra(id,body){
   var c=id?compras.find(function(x){return x.id===id;}):null;
   cmpItems=c&&c.items?c.items.map(function(i){return Object.assign({},i);}):[];
