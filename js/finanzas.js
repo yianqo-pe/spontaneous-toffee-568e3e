@@ -549,15 +549,20 @@ function fillGastosFiltros(){
   var selM=document.getElementById("fg-mes");
   var selC=document.getElementById("fg-cat");
   if(!selA||!selM) return;
+  var anioActual=String(new Date().getFullYear());
+  var mesActualNum=new Date().getMonth()+1;
+  var primeraVez=!window._gastosFiltrosInit;
+  window._gastosFiltrosInit=true;
   var curA=selA.value;
   var anios=gastosAniosDisponibles();
-  selA.innerHTML='<option value="">Todos los años</option>'+anios.map(function(a){return '<option value="'+a+'"'+(curA===a?' selected':'')+'>'+a+'</option>';}).join("");
-  if(curA&&anios.indexOf(curA)>=0) selA.value=curA;
+  var selAnio=primeraVez?anioActual:curA;
+  selA.innerHTML='<option value="">Todos los años</option>'+anios.map(function(a){return '<option value="'+a+'"'+(selAnio===a?' selected':'')+'>'+a+'</option>';}).join(" ");
+  if(selAnio&&anios.indexOf(selAnio)>=0) selA.value=selAnio;
   if(!selM.innerHTML){
-    selM.innerHTML='<option value="">Todos los meses</option>'+MESES_CORTOS.map(function(m,i){return '<option value="'+(i+1)+'">'+m+'</option>';}).join("");
+    selM.innerHTML='<option value="">Todos los meses</option>'+MESES_CORTOS.map(function(m,i){return '<option value="'+(i+1)+'"'+((i+1)===mesActualNum?' selected':'')+'>'+m+'</option>';}).join(" ");
   }
   if(selC&&!selC.innerHTML){
-    selC.innerHTML='<option value="">Todas las categorías</option>'+CAT_GASTO.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join("");
+    selC.innerHTML='<option value="">Todas las categorías</option>'+CAT_GASTO.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join(" ");
   }
 }
 function renderGastos(){

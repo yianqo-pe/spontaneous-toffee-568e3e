@@ -93,8 +93,7 @@ function descargarEtiquetaPDF(id){
   // Se eliminaron lineHCodigo, gap1, gap3 y lineHCosto:
   // ya NO hay código arriba-derecha ni línea de Costo abajo.
   var gap2=7,lineHNombre=18,lineHVenta=20;
-  var totalH=nombreLines.length*lineHNombre+gap2+lineHVenta;
-  var y=(labelH-totalH)/2;
+  var y=qrY;
   ctx.textAlign="left";
   ctx.fillStyle="#000000";
   ctx.font="bold 15px Arial";
