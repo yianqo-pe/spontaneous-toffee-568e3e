@@ -78,6 +78,7 @@ var ESTCOLOR={Preparando:"#B8860B",Enviado:"#1565C0",Anulado:"#C62828"};
 var PEDIDO_OPTS=["Preparando","OK"];
 var PEDIDO_COLOR={Preparando:"#B8860B",OK:"#1565C0"};
 function getOInfo(oid){var o=ordenes.find(function(x){return x.id===Number(oid);});if(!o) return null;var c=cById(o.clienteId);var items=o.detalleIds.map(function(id){return detalles.find(function(d){return d.id===id;});}).filter(Boolean);return{o:o,c:c,items:items,total:items.reduce(function(s,d){return s+d.precio*d.cantidad;},0),cant:items.reduce(function(s,d){return s+(Number(d.cantidad)||0);},0)};}
+if(typeof window.normMedio==="undefined"){ window.normMedio=function(v){ return String(v==null?"":v).trim().toLowerCase(); }; }
 function renderEnvios(){
   var q=(document.getElementById("src-e")?document.getElementById("src-e").value:"").toLowerCase();
   var medioSel=document.getElementById("flt-e-medio")?document.getElementById("flt-e-medio").value:"";
@@ -85,7 +86,7 @@ function renderEnvios(){
   var pedSel=document.getElementById("flt-e-pedido")?document.getElementById("flt-e-pedido").value:"";
   var estSel=document.getElementById("flt-e-estado")?document.getElementById("flt-e-estado").value:"";
   var lista=envios.filter(function(e){
-    if(medioSel&&e.medioEnvio!==medioSel) return false;
+    if(medioSel&&window.normMedio(e.medioEnvio)!==window.normMedio(medioSel)) return false;
     if(agSel&&e.agencia!==agSel) return false;
     if(pedSel&&(e.pedido||"Preparando")!==pedSel) return false;
     if(estSel&&(e.estadoEnvio||"Preparando")!==estSel) return false;
@@ -102,7 +103,22 @@ function renderEnvios(){
   });
   var pg=pagSlice("envios",lista);
   document.getElementById("lst-e").innerHTML=(pg.items.length?pg.items.map(function(e){
-    var info=getOInfo(e.ordenId);if(!info) return "";
+    var info=getOInfo(e.ordenId);
+if(!info){
+  return '<div class="card" style="border-left:4px solid #C62828;background:rgba(198,40,40,.04)">'+
+    '<div class="crow">'+
+      '<div style="width:38px;height:38px;border-radius:10px;background:rgba(198,40,40,.15);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">⚠️</div>'+
+      '<div class="ci">'+
+        '<div class="cn" style="color:#C62828">Orden no encontrada</div>'+
+        '<div class="cm">Este envío apunta a una orden que ya no existe (probablemente fue eliminada). Revísalo o elimínalo con la papelera.</div>'+
+        '<div class="cm">Medio: '+esc(e.medioEnvio||"—")+' · Estado: '+esc(e.estadoEnvio||"Preparando")+(e.nombres?' · '+esc(e.nombres):'')+'</div>'+
+      '</div>'+
+      '<div class="cact" data-noedit>'+
+        '<button class="ib ibd" onclick="delE('+e.id+')" title="Eliminar envío huérfano">'+SVGt+'</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
     var ec=ESTCLS[e.estadoEnvio]||"";
     var pedColor=PEDIDO_COLOR[e.pedido]||"var(--gray)";
     var ubic=[e.distrito,e.provincia,e.dpto].filter(Boolean).join(", ");
@@ -194,17 +210,28 @@ function guardarOrdenEnColeccion(obj){
   });
 }
 function delO(id){
-  confirm2("¿Eliminar? Los items volverán a Sin_OV.").then(function(ok){
-    if(!ok) return;
-    var o=ordenes.find(function(x){return x.id===id;});
-    if(o){
-      detalles=detalles.map(function(d){return o.detalleIds.indexOf(d.id)>=0?Object.assign({},d,{estado:"Sin_OV"}):d;});
-      o.detalleIds.forEach(function(did){ guardarDetalleEnColeccion(detalles.find(function(d){return d.id===did;})); });
-    }
-    ordenes=ordenes.filter(function(x){return x.id!==id;});
-    renderOrdenes();renderVentas();updateNav();
-    if(db){db.collection("ordenes").doc(String(id)).delete().catch(function(err){console.error("Error eliminando orden:",err);setSyncStatus("error","Error al eliminar orden");});}
-  });
+var envAsoc=envios.filter(function(e){return Number(e.ordenId)===Number(id);});
+var msg="¿Eliminar? Los items volverán a Sin_OV.";
+if(envAsoc.length){ msg+=" También se eliminarán "+envAsoc.length+" envío(s) vinculado(s)."; }
+confirm2(msg).then(function(ok){
+if(!ok) return;
+var o=ordenes.find(function(x){return x.id===id;});
+if(o){
+detalles=detalles.map(function(d){return o.detalleIds.indexOf(d.id)>=0?Object.assign({},d,{estado:"Sin_OV"}):d;});
+o.detalleIds.forEach(function(did){ guardarDetalleEnColeccion(detalles.find(function(d){return d.id===did;})); });
+}
+if(envAsoc.length){
+envios=envios.filter(function(e){return Number(e.ordenId)!==Number(id);});
+if(db){
+envAsoc.forEach(function(e){
+db.collection("envios").doc(String(e.id)).delete().catch(function(err){console.error("Error eliminando envío vinculado:",err);setSyncStatus("error","Error al eliminar envío vinculado");});
+});
+}
+}
+ordenes=ordenes.filter(function(x){return x.id!==id;});
+renderOrdenes();renderVentas();renderEnvios();updateNav();
+if(db){db.collection("ordenes").doc(String(id)).delete().catch(function(err){console.error("Error eliminando orden:",err);setSyncStatus("error","Error al eliminar orden");});}
+});
 }
 function viewOrden(id){
   var o=ordenes.find(function(x){return x.id===id;});if(!o) return;

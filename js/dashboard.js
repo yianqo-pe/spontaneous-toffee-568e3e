@@ -25,7 +25,34 @@ function renderHome(){
     '<div class="sc" style="border-left:4px solid var(--rose)"><div class="sl">Ventas Pendientes de Pago</div><div class="sv" style="font-size:18px">'+udsPend+' uds.</div><div class="ss">'+fmt(montoPend)+'</div></div>'+
     '<div class="sc" style="border-left:4px solid var(--gold)"><div class="sl">Sin OV</div><div class="sv">'+sinov+'</div><div class="ss">pendientes envío</div></div>'+
     '<div class="sc" style="border-left:4px solid var(--teal)"><div class="sl">Productos</div><div class="sv">'+productos.length+'</div><div class="ss">'+stk+' uds en stock</div></div>';
-    
+  
+// ── Tarjeta "Pedidos preparando" (primera del panel · acento ámbar · huérfanos aparte) ──
+if(typeof window.normMedio==="undefined"){ window.normMedio=function(v){ return String(v==null?"":v).trim().toLowerCase(); }; }
+var _hasOrd = function(oid){ return (window.ordenes||[]).some(function(x){ return x.id===Number(oid); }); };
+var prep = (window.envios||[]).filter(function(e){ return (e.estadoEnvio||"Preparando")==="Preparando"; });
+var nA=0,nD=0,nP=0,nO=0,nSin=0;
+prep.forEach(function(e){
+  if(!_hasOrd(e.ordenId)){ nSin++; return; }
+  var m=window.normMedio(e.medioEnvio);
+  if(m==="agencia") nA++;
+  else if(m==="delivery moto") nD++;
+  else if(m==="punto de entrega") nP++;
+  else nO++;
+});
+var totalPrep=prep.length;
+var tarjetaPrep='<div class="sc" style="border-left:4px solid #B8860B">'+
+  '<div class="sl">Pedidos preparando</div>'+
+  '<div class="sv">'+totalPrep+'</div>'+
+  '<div style="margin-top:6px;display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--gray);line-height:1.35">'+
+    '<span>🏢 Agencia: <strong style="color:var(--dark)">'+nA+'</strong></span>'+
+    '<span>🛵 Delivery Moto: <strong style="color:var(--dark)">'+nD+'</strong></span>'+
+    '<span>📍 Punto de Entrega: <strong style="color:var(--dark)">'+nP+'</strong></span>'+
+    (nO>0?'<span>📦 Otros: <strong style="color:var(--dark)">'+nO+'</strong></span>':'')+
+    (nSin>0?'<span style="color:#C62828">⚠ Sin orden: <strong>'+nSin+'</strong></span>':'')+
+  '</div>'+
+'</div>';
+var hs=document.getElementById("hstats");
+if(hs){ hs.insertAdjacentHTML("afterbegin", tarjetaPrep); }
   // 4. Actualizar el bloque principal (hhero)
   document.getElementById("hhero").innerHTML='<div style="font-size:11px;font-weight:600;letter-spacing:1px;opacity:.8;margin-bottom:6px">VENTAS DEL MES DE ' + nombreMesActual + '</div><div style="font-family:\'Playfair Display\',serif;font-size:32px;font-weight:600">'+fmt(tvMes)+'</div><div style="font-size:13px;opacity:.75;margin-top:4px">'+cantProdMes+' productos vendidos</div>';
 
