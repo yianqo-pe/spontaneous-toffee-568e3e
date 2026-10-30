@@ -157,6 +157,24 @@ function fmEnvio(id,body){
 }
 var ovSel=[];
 
+// ── REORDENAMIENTO DE ITEMS DE ORDEN · P3 (opción A: arrastrar · opción B: botones) ──
+function moverOV(id,destino){
+  var idx=ovSel.indexOf(id);
+  if(idx<0) return;
+  ovSel.splice(idx,1);
+  if(destino==="top") ovSel.unshift(id);
+  else if(destino==="bottom") ovSel.push(id);
+  else if(destino==="up") ovSel.splice(Math.max(0,idx-1),0,id);
+  else if(destino==="down") ovSel.splice(Math.min(ovSel.length,idx+1),0,id);
+  updateDispOV();
+}
+window._dragOVId=null;
+function _clrChk(){ var n=document.querySelectorAll("#idisp .chk"),i; for(i=0;i<n.length;i++){ n[i].style.outline=""; n[i].style.outlineOffset=""; } }
+function dragOVStart(ev,id){ window._dragOVId=id; ev.dataTransfer.effectAllowed="move"; try{ ev.dataTransfer.setData("text/plain",String(id)); }catch(e){} }
+function dragOVOver(ev){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; _clrChk(); var el=ev.currentTarget; if(el){ el.style.outline="2px dashed var(--pink)"; el.style.outlineOffset="-2px"; } }
+function dragOVDrop(ev,id){ ev.preventDefault(); _clrChk(); var dragId=window._dragOVId; window._dragOVId=null; if(!dragId||dragId===id) return; var di=ovSel.indexOf(dragId), ti=ovSel.indexOf(id); if(di<0||ti<0) return; ovSel.splice(di,1); ti=ovSel.indexOf(id); ovSel.splice(ti,0,dragId); updateDispOV(); }
+function dragOVEnd(ev){ window._dragOVId=null; _clrChk(); }
+window.moverOV=moverOV; window.dragOVStart=dragOVStart; window.dragOVOver=dragOVOver; window.dragOVDrop=dragOVDrop; window.dragOVEnd=dragOVEnd;
 function updateDispOV(){
   var cid=Number(document.getElementById("co-id")?document.getElementById("co-id").value:0);
   var el=document.getElementById("idisp");
@@ -168,12 +186,42 @@ function updateDispOV(){
       return diff!==0?diff:(b.id-a.id);
     });
   if(!disp.length){el.innerHTML='<p style="font-size:13px;color:var(--gray)">No hay items disponibles para esta clienta</p>';return;}
+  // ── P1: los items SELECCIONADOS van primero, en el orden de ovSel; los demas despues (orden fecha ya traido) ──
+var _ovPos={}; ovSel.forEach(function(_id,_i){ _ovPos[_id]=_i; });
+disp=disp.slice().sort(function(a,b){
+  var pa=_ovPos.hasOwnProperty(a.id)?_ovPos[a.id]:Infinity;
+  var pb=_ovPos.hasOwnProperty(b.id)?_ovPos[b.id]:Infinity;
+  if(pa!==pb) return pa-pb;
+  return 0;
+});
   var todosSel=disp.every(function(d){return ovSel.indexOf(d.id)>=0;});
   var html='<div class="chk'+(todosSel?" sel":"")+'" onclick="toggleSelectAllOV()" style="background:rgba(242,196,206,.2);border:1.5px dashed var(--pink)"><div class="chkb">'+(todosSel?SVGck:"")+'</div><div style="flex:1;font-size:13px;font-weight:600">Seleccionar todos ('+disp.length+' items)</div></div>';
-  html+=disp.map(function(d){
-    var sel=ovSel.indexOf(d.id)>=0;
-    return '<div class="chk'+(sel?" sel":"")+'" onclick="toggleOV('+d.id+',this)" data-id="'+d.id+'"><div class="chkb">'+(sel?SVGck:"")+'</div><div style="flex:1"><div style="font-size:13px;font-weight:500">'+fechaCorta(d.fecha)+' | '+esc(d.producto)+'</div><div style="font-size:11px;color:var(--gray);margin-top:2px">'+esc(d.color||"—")+' · ×'+d.cantidad+' · P.Unit: '+fmt(d.precio)+'</div><div style="font-size:13px;font-weight:500;margin-top:2px;color:var(--pink)">Sub Total: '+fmt(d.precio*d.cantidad)+'</div></div></div>';
-  }).join("");
+html+=disp.map(function(d){
+  var sel=ovSel.indexOf(d.id)>=0;
+  var mvSt='style="width:28px;height:26px;padding:0;border:1px solid var(--line,#E5DED6);background:var(--cream,#FBF6EF);color:var(--dark,#2C2C2C);border-radius:7px;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center"';
+  var dragAttrs=sel?' draggable="true" ondragstart="dragOVStart(event,'+d.id+')" ondragover="dragOVOver(event)" ondrop="dragOVDrop(event,'+d.id+')" ondragend="dragOVEnd(event)"':'';
+  var ordBtns=sel?(
+    '<div class="chk-ord" data-noedit style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;margin-left:10px;align-items:center">'+
+      '<div style="display:flex;gap:3px">'+
+        '<button type="button" '+mvSt+' onclick="event.stopPropagation();moverOV('+d.id+',\'top\')" title="Mover al inicio">⤒</button>'+
+        '<button type="button" '+mvSt+' onclick="event.stopPropagation();moverOV('+d.id+',\'up\')" title="Subir uno">▲</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:3px">'+
+        '<button type="button" '+mvSt+' onclick="event.stopPropagation();moverOV('+d.id+',\'down\')" title="Bajar uno">▼</button>'+
+        '<button type="button" '+mvSt+' onclick="event.stopPropagation();moverOV('+d.id+',\'bottom\')" title="Mover al final">⤓</button>'+
+      '</div>'+
+    '</div>'
+  ):'';
+  return '<div class="chk'+(sel?" sel":"")+'"'+dragAttrs+' onclick="toggleOV('+d.id+',this)" data-id="'+d.id+'">'+
+    '<div class="chkb">'+(sel?SVGck:"")+'</div>'+
+    '<div style="flex:1;min-width:0">'+
+      '<div style="font-size:13px;font-weight:500">'+fechaCorta(d.fecha)+'| '+esc(d.producto)+'</div>'+
+      '<div style="font-size:11px;color:var(--gray);margin-top:2px">'+esc(d.color||"—")+' · ×'+d.cantidad+' · P.Unit: '+fmt(d.precio)+'</div>'+
+      '<div style="font-size:13px;font-weight:500;margin-top:2px;color:var(--pink)">Sub Total: '+fmt(d.precio*d.cantidad)+'</div>'+
+    '</div>'+
+    ordBtns+
+  '</div>';
+}).join(" ");
   el.innerHTML=html;
   updSubO();
 }
